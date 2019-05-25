@@ -20,7 +20,6 @@ import pdb
 import numpy as np
 import cv2
 import math
-#import matplotlib.pyplot as plt
 import time
 from scipy.misc import imread, imsave, imshow, imresize
 

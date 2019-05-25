@@ -18,28 +18,13 @@ import pdb
 import numpy as np
 import cv2
 import math
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import time
-plt.switch_backend('agg')
-
-parser = argparse.ArgumentParser(description='DSFD:Dual Shot Face Detector')
-parser.add_argument('--trained_model', default='weights/WIDERFace_DSFD_RES152.pth',
-                    type=str, help='Trained state_dict file path to open')
-parser.add_argument('--save_folder', default='eval_tools/', type=str,
-                    help='Dir to save results')
-parser.add_argument('--visual_threshold', default=0.1, type=float,
-                    help='Final confidence threshold')
-parser.add_argument('--img_root', default='./data/worlds-largest-selfie.jpg', help='Location of test images directory')
-parser.add_argument('--widerface_root', default=WIDERFace_ROOT, help='Location of WIDERFACE root directory')
-args = parser.parse_args()
 
 if torch.cuda.is_available():
     torch.set_default_tensor_type('torch.cuda.FloatTensor')
 else:
     torch.set_default_tensor_type('torch.FloatTensor')
-
-if not os.path.exists(args.save_folder):
-    os.mkdir(args.save_folder)
 
 def bbox_vote(det):
     order = det[:, 4].ravel().argsort()[::-1]
@@ -153,62 +138,13 @@ def infer_multi_scale_sfd(net , img , transform , thresh , cuda ,  max_im_shrink
         det_b = det_b[index, :]
     return det_s, det_b
 
-
-def vis_detections(im,  dets, image_name , thresh=0.5):
-    """Draw detected bounding boxes."""
-    class_name = 'face'
-    inds = np.where(dets[:, -1] >= thresh)[0]
-    if len(inds) == 0:
-        return
-    print (len(inds))
-    im = im[:, :, (2, 1, 0)]
-    fig, ax = plt.subplots(figsize=(12, 12))
-    ax.imshow(im, aspect='equal')
-    for i in inds:
-        bbox = dets[i, :4]
-        score = dets[i, -1]
-        ax.add_patch(
-            plt.Rectangle((bbox[0], bbox[1]),
-                          bbox[2] - bbox[0],
-                          bbox[3] - bbox[1], fill=False,
-                          edgecolor='red', linewidth=2.5)
-            )
-        '''
-        ax.text(bbox[0], bbox[1] - 5,
-                '{:s} {:.3f}'.format(class_name, score),
-                bbox=dict(facecolor='blue', alpha=0.5),
-                fontsize=10, color='white')
-        '''
-    ax.set_title(('{} detections with '
-                  'p({} | box) >= {:.1f}').format(class_name, class_name,
-                                                  thresh),
-                  fontsize=10)
-    plt.axis('off')
-    plt.tight_layout()
-    plt.savefig(args.save_folder+image_name, dpi=fig.dpi)
-
-def test_oneimage(img):
-    # load net
+def test_oneimage(net, img, model_path):
     cfg = widerface_640
-    num_classes = len(WIDERFace_CLASSES) + 1 # +1 background
-    print('cfg',cfg)
-
-    net = build_ssd('test', cfg['min_dim'], num_classes) # initialize SSD
-
-    if torch.cuda.is_available():
-        net.load_state_dict(torch.load(args.trained_model))
-        net.cuda()
-    else:
-        net.load_state_dict(torch.load(args.trained_model, map_location='cpu'))
-    net.eval()
-    print('Finished loading model!')
 
     # evaluation
     cuda = torch.cuda.is_available()
     transform = TestBaseTransform((104, 117, 123))
     thresh=cfg['conf_thresh']
-    #save_path = args.save_folder
-    #num_images = len(testset)
 
     max_im_shrink = ( (2000.0*2000.0) / (img.shape[0] * img.shape[1])) ** 0.5
     shrink = max_im_shrink if max_im_shrink < 1 else 1
@@ -256,8 +192,6 @@ def test_oneimage(img):
     cv2.destroyAllWindows()
     """
     return det
-    #vis_detections(img , det , img_id, args.visual_threshold)
-
 
 if __name__ == '__main__':
     test_oneimage()

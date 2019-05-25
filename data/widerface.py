@@ -14,8 +14,7 @@ sys.path.append("/f/home/jianli/code/s3fd.180716/")
 import scipy.io
 import pdb
 from collections import defaultdict
-import matplotlib.pyplot as plt
-plt.switch_backend('agg')
+#plt.switch_backend('agg')
 
 WIDERFace_CLASSES = ['face']  # always index 0
 # note: if you used our download scripts, this should be right
@@ -55,25 +54,25 @@ class WIDERFaceAnnotationTransform(object):
             if target[i][2] > width-2 : target[i][2] = width - 2
             if target[i][3] > height-2 : target[i][3] = height - 2
             '''
-            target[i][0] = float(target[i][0]) / width 
-            target[i][1] = float(target[i][1]) / height  
-            target[i][2] = float(target[i][2]) / width 
-            target[i][3] = float(target[i][3]) / height  
+            target[i][0] = float(target[i][0]) / width
+            target[i][1] = float(target[i][1]) / height
+            target[i][2] = float(target[i][2]) / width
+            target[i][3] = float(target[i][3]) / height
             '''
             if target[i][0] < 0.0001:
-                target[i][0] = 0.0001 
+                target[i][0] = 0.0001
             if target[i][1] < 0.0001:
-                target[i][1] = 0.0001 
+                target[i][1] = 0.0001
             if target[i][2] > 0.9999:
                 target[i][2] = 0.9999
             if target[i][3] > 0.9999:
                 target[i][3] = 0.9999
             '''
             # filter error bbox
-            
+
             #if target[i][0] >= target[i][2] or target[i][1] >= target[i][3] or target[i][0] < 0 or target[i][1] < 0 or target[i][2] > 1 or target[i][3] > 1 :
             #    print ("error bbox: " ,  target[i])
-            
+
             '''
             assert target[i][0] >= 0.001
             assert target[i][1] >= 0.001
@@ -86,7 +85,7 @@ class WIDERFaceAnnotationTransform(object):
         return target  # [[xmin, ymin, xmax, ymax, label_ind], ... ]
 
 class WIDERFaceDetection(data.Dataset):
-    """WIDERFace Detection Dataset Object   
+    """WIDERFace Detection Dataset Object
     http://mmlab.ie.cuhk.edu.hk/projects/WIDERFace/
 
     input is image, target is annotation
@@ -127,17 +126,17 @@ class WIDERFaceDetection(data.Dataset):
                 self.ids.append((rootpath, line.strip()))
         '''
         if self.image_set == 'train':
-            path_to_label = osp.join ( self.root , 'wider_face_split' ) 
+            path_to_label = osp.join ( self.root , 'wider_face_split' )
             path_to_image = osp.join ( self.root , 'WIDER_train/images' )
             fname = "wider_face_train.mat"
 
         if self.image_set == 'val':
-            path_to_label = osp.join ( self.root , 'wider_face_split' ) 
+            path_to_label = osp.join ( self.root , 'wider_face_split' )
             path_to_image = osp.join ( self.root , 'WIDER_val/images' )
             fname = "wider_face_val.mat"
 
         if self.image_set == 'test':
-            path_to_label = osp.join ( self.root , 'wider_face_split' ) 
+            path_to_label = osp.join ( self.root , 'wider_face_split' )
             path_to_image = osp.join ( self.root , 'WIDER_test/images' )
             fname = "wider_face_test.mat"
 
@@ -148,12 +147,12 @@ class WIDERFaceDetection(data.Dataset):
         self.event_list = self.f.get('event_list')
         self.file_list = self.f.get('file_list')
         self.face_bbx_list = self.f.get('face_bbx_list')
- 
+
         self._load_widerface()
 
     def _load_widerface(self):
 
-        error_bbox = 0 
+        error_bbox = 0
         train_bbox = 0
         for event_idx, event in enumerate(self.event_list):
             directory = event[0][0]
@@ -173,11 +172,11 @@ class WIDERFaceDetection(data.Dataset):
                     if face_bbx[i][2] < 2 or face_bbx[i][3] < 2 or face_bbx[i][0] < 0 or face_bbx[i][1] < 0:
                         error_bbox +=1
                         #print (face_bbx[i])
-                        continue 
-                    train_bbox += 1 
+                        continue
+                    train_bbox += 1
                     xmin = float(face_bbx[i][0])
                     ymin = float(face_bbx[i][1])
-                    xmax = float(face_bbx[i][2]) + xmin -1 	
+                    xmax = float(face_bbx[i][2]) + xmin -1
                     ymax = float(face_bbx[i][3]) + ymin -1
                     bboxes.append([xmin, ymin, xmax, ymax, 0])
 
@@ -188,7 +187,7 @@ class WIDERFaceDetection(data.Dataset):
                 self.label_ids.append( bboxes )
                 #yield DATA(os.path.join(self.path_to_image, directory,  im_name + '.jpg'), bboxes)
         print("Error bbox number to filter : %d,  bbox number: %d"  %(error_bbox , train_bbox))
-        
+
 
     def __getitem__(self, index):
         im, gt, h, w = self.pull_item(index)
@@ -219,29 +218,6 @@ class WIDERFaceDetection(data.Dataset):
         return torch.from_numpy(img).permute(2, 0, 1), target, height, width
         # return torch.from_numpy(img), target, height, width
 
-    def vis_detections(self , im,  dets, image_name ):
-
-        cv2.imwrite("./tmp_res/"+str(image_name)+"ori.jpg" , im)
-        print (im)
-        size = im.shape[0]
-        dets = dets*size
-        """Draw detected bounding boxes."""
-        class_name = 'face'
-        #im = im[:, :, (2, 1, 0)]
-        fig, ax = plt.subplots(figsize=(12, 12))
-        ax.imshow(im, aspect='equal')
-
-        for i in range(len(dets)):
-            bbox = dets[i, :4]
-            ax.add_patch(
-                plt.Rectangle((bbox[0], bbox[1]),
-                              bbox[2] - bbox[0] + 1,
-                              bbox[3] - bbox[1] + 1, fill=False,
-                              edgecolor='red', linewidth=2.5)
-                )
-        plt.axis('off')
-        plt.tight_layout()
-        plt.savefig('./tmp_res/'+str(image_name)+".jpg", dpi=fig.dpi)
 
     def vis_detections_v2(self , im,  dets, image_name ):
         size = im.shape[0]
@@ -302,7 +278,7 @@ class WIDERFaceDetection(data.Dataset):
 
 '''
 from utils.augmentations import SSDAugmentation
-if __name__ == '__main__': 
+if __name__ == '__main__':
     dataset = WIDERFaceDetection( root=WIDERFace_ROOT, transform=SSDAugmentation(640,(104,117,123) ) )
     for i in range(10000):
        img, tar = dataset.pull_item(i)

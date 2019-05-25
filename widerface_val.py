@@ -1,4 +1,4 @@
-from __future__ import print_function 
+from __future__ import print_function
 import sys
 import os
 import argparse
@@ -17,9 +17,8 @@ import pdb
 import numpy as np
 import cv2
 import math
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import time
-plt.switch_backend('agg')
 
 parser = argparse.ArgumentParser(description='DSFD: Dual Shot Face Detector')
 parser.add_argument('--trained_model', default='weights/WIDERFace_DSFD_RES152.pth',
@@ -230,41 +229,7 @@ testset = WIDERFaceDetection(args.widerface_root, 'val' , None, WIDERFaceAnnotat
 #testset = WIDERFaceDetection(args.widerface_root, 'test' , None, WIDERFaceAnnotationTransform())
 
 
-def vis_detections(imgid, im,  dets, thresh=0.5):
-    """Draw detected bounding boxes."""
-    class_name = 'face'
-    inds = np.where(dets[:, -1] >= thresh)[0]
-    if len(inds) == 0:
-        return
-    im = im[:, :, (2, 1, 0)]
-    print (len(inds))
-    fig, ax = plt.subplots(figsize=(12, 12))
-    ax.imshow(im, aspect='equal')
-    for i in inds:
-        bbox = dets[i, :4]
-        score = dets[i, -1]
-        ax.add_patch(
-            plt.Rectangle((bbox[0], bbox[1]),
-                          bbox[2] - bbox[0],
-                          bbox[3] - bbox[1], fill=False,
-                          edgecolor='green', linewidth=2.5)
-            )
-        '''
-        ax.text(bbox[0], bbox[1] - 5,
-                '{:s} {:.3f}'.format(class_name, score),
-                bbox=dict(facecolor='blue', alpha=0.5),
-                fontsize=10, color='white')
-        '''
-    #ax.set_title(('{} detections with '
-    #              'p({} | box) >= {:.1f}').format(class_name, class_name,
-    #                                              thresh),
-    #              fontsize=10)
-    plt.axis('off')
-    plt.tight_layout()
-    plt.savefig('./val_pic_res/'+str(imgid), dpi=fig.dpi)
-
-
-print("Finished loading data")    
+print("Finished loading data")
 def test_widerface():
     # evaluation
     cuda = args.cuda
@@ -281,7 +246,7 @@ def test_widerface():
         #max_im_shrink = ( (2000.0*2000.0) / (img.shape[0] * img.shape[1])) ** 0.5
         max_im_shrink = (0x7fffffff / 200.0 / (image.shape[0] * image.shape[1])) ** 0.5 # the max size of input image for caffe
         max_im_shrink = 3 if max_im_shrink > 3 else max_im_shrink
-            
+
         shrink = max_im_shrink if max_im_shrink < 1 else 1
 
         det0 = detect_face(image, shrink)  # origin test
@@ -291,12 +256,12 @@ def test_widerface():
         det = np.row_stack((det0, det1, det2, det3, det4))
 
         dets = bbox_vote(det)
-        #vis_detections(i ,image, dets , 0.8)         
-        
+
+
         if not os.path.exists(save_path + event):
             os.makedirs(save_path + event)
         f = open(save_path + event + '/' + img_id.split(".")[0] + '.txt', 'w')
         write_to_txt(f, dets , event, img_id)
-        
+
 if __name__=="__main__":
     test_widerface()
