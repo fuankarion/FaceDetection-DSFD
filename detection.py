@@ -74,11 +74,13 @@ def infer(net , img , transform , thresh , cuda , shrink):
     if shrink != 1:
         img = cv2.resize(img, None, None, fx=shrink, fy=shrink, interpolation=cv2.INTER_LINEAR)
     x = torch.from_numpy(transform(img)[0]).permute(2, 0, 1)
-    x = Variable(x.unsqueeze(0) , volatile=True)
-    if cuda:
-        x = x.cuda()
-    #print (shrink , x.shape)
-    y = net(x)      # forward pass
+
+    with torch.no_grad():
+        x = Variable(x.unsqueeze(0))
+        if cuda:
+            x = x.cuda()
+        #print (shrink , x.shape)
+        y = net(x)      # forward pass
     detections = y.data
     # scale each detection back up to the image
     scale = torch.Tensor([ img.shape[1]/shrink, img.shape[0]/shrink,
