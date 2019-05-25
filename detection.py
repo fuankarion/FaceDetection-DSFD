@@ -1,4 +1,4 @@
-from __future__ import print_function 
+from __future__ import print_function
 import sys
 import os
 import argparse
@@ -29,19 +29,17 @@ parser.add_argument('--save_folder', default='eval_tools/', type=str,
                     help='Dir to save results')
 parser.add_argument('--visual_threshold', default=0.1, type=float,
                     help='Final confidence threshold')
-parser.add_argument('--cuda', default=True, type=bool,
-                    help='Use cuda to train model')
 parser.add_argument('--img_root', default='./data/worlds-largest-selfie.jpg', help='Location of test images directory')
 parser.add_argument('--widerface_root', default=WIDERFace_ROOT, help='Location of WIDERFACE root directory')
 args = parser.parse_args()
 
-if args.cuda and torch.cuda.is_available():
+if torch.cuda.is_available():
     torch.set_default_tensor_type('torch.cuda.FloatTensor')
 else:
     torch.set_default_tensor_type('torch.FloatTensor')
+
 if not os.path.exists(args.save_folder):
     os.mkdir(args.save_folder)
-
 
 def bbox_vote(det):
     order = det[:, 4].ravel().argsort()[::-1]
@@ -83,7 +81,7 @@ def write_to_txt(f, det , event , im_name):
         ymin = det[i][1]
         xmax = det[i][2]
         ymax = det[i][3]
-        score = det[i][4] 
+        score = det[i][4]
         f.write('{:.1f} {:.1f} {:.1f} {:.1f} {:.3f}\n'.
                 format(xmin, ymin, (xmax - xmin + 1), (ymax - ymin + 1), score))
 
@@ -107,7 +105,7 @@ def infer(net , img , transform , thresh , cuda , shrink):
             score = detections[0, i, j, 0]
             #label_name = labelmap[i-1]
             pt = (detections[0, i, j, 1:]*scale).cpu().numpy()
-            coords = (pt[0], pt[1], pt[2], pt[3]) 
+            coords = (pt[0], pt[1], pt[2], pt[3])
             det.append([pt[0], pt[1], pt[2], pt[3], score])
             j += 1
     if (len(det)) == 0:
@@ -189,38 +187,43 @@ def vis_detections(im,  dets, image_name , thresh=0.5):
     plt.tight_layout()
     plt.savefig(args.save_folder+image_name, dpi=fig.dpi)
 
-def test_oneimage():
+def test_oneimage(img):
     # load net
     cfg = widerface_640
     num_classes = len(WIDERFace_CLASSES) + 1 # +1 background
+    print('cfg',cfg)
+
     net = build_ssd('test', cfg['min_dim'], num_classes) # initialize SSD
-    net.load_state_dict(torch.load(args.trained_model))
-    net.cuda()
+
+    if torch.cuda.is_available():
+        net.load_state_dict(torch.load(args.trained_model))
+        net.cuda()
+    else:
+        net.load_state_dict(torch.load(args.trained_model, map_location='cpu'))
     net.eval()
     print('Finished loading model!')
 
     # evaluation
-    cuda = args.cuda
+    cuda = torch.cuda.is_available()
     transform = TestBaseTransform((104, 117, 123))
     thresh=cfg['conf_thresh']
     #save_path = args.save_folder
     #num_images = len(testset)
- 
-    # load data
-    path = args.img_root
-    img_id = 'face'
-    img = cv2.imread(path, cv2.IMREAD_COLOR)
 
     max_im_shrink = ( (2000.0*2000.0) / (img.shape[0] * img.shape[1])) ** 0.5
     shrink = max_im_shrink if max_im_shrink < 1 else 1
 
     det0 = infer(net , img , transform , thresh , cuda , shrink)
     det1 = infer_flip(net , img , transform , thresh , cuda , shrink)
+
+    print('1')
     # shrink detecting and shrink only detect big face
     st = 0.5 if max_im_shrink >= 0.75 else 0.5 * max_im_shrink
     det_s = infer(net , img , transform , thresh , cuda , st)
     index = np.where(np.maximum(det_s[:, 2] - det_s[:, 0] + 1, det_s[:, 3] - det_s[:, 1] + 1) > 30)[0]
     det_s = det_s[index, :]
+
+    print('2')
     # enlarge one times
     factor = 2
     bt = min(factor, max_im_shrink) if max_im_shrink > 1 else (st + max_im_shrink) / 2
@@ -232,6 +235,8 @@ def test_oneimage():
             det_b = np.row_stack((det_b, infer(net , img , transform , thresh , cuda , bt)))
             bt *= factor
         det_b = np.row_stack((det_b, infer(net , img , transform , thresh , cuda , max_im_shrink) ))
+
+    print('3')
     # enlarge only detect small face
     if bt > 1:
         index = np.where(np.minimum(det_b[:, 2] - det_b[:, 0] + 1, det_b[:, 3] - det_b[:, 1] + 1) < 100)[0]
@@ -241,7 +246,17 @@ def test_oneimage():
         det_b = det_b[index, :]
     det = np.row_stack((det0, det1, det_s, det_b))
     det = bbox_vote(det)
-    vis_detections(img , det , img_id, args.visual_threshold)
+
+    """
+    for aDet in det:
+        print(aDet)
+        cv2.rectangle(img,(int(aDet[0]),int(aDet[1])),(int(aDet[2]),int(aDet[3])),(0,255,0),3)
+    cv2.imshow('image',img)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+    """
+    return det
+    #vis_detections(img , det , img_id, args.visual_threshold)
 
 
 if __name__ == '__main__':
